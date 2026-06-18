@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Acceso Seguro - Panel de Ventas</title>
+    <script src="https://jsdelivr.net"></script>
+    <script src="https://jsdelivr.net"></script>
+</head>
+<body class="bg-gray-900 text-gray-100 font-sans p-6">
+
+    <!-- 🔑 PANTALLA DE LOGIN -->
+    <div id="login-screen" class="flex items-center justify-center min-h-screen">
+        <div class="bg-gray-800 p-8 rounded-2xl border border-gray-700 shadow-2xl w-full max-w-md">
+            <div class="text-center mb-6">
+                <span class="text-4xl">🔐</span>
+                <h2 class="text-2xl font-bold text-blue-400 mt-2">Autenticación SQL Server</h2>
+                <p class="text-xs text-gray-400 mt-1">Ingresa tus credenciales autorizadas de red</p>
+            </div>
+            
+            <div id="login-error" class="hidden bg-red-900/40 border border-red-500 text-red-200 text-xs p-3 rounded-lg mb-4 text-center"></div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 uppercase">Usuario</label>
+                    <input type="text" id="input-user" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2.5 mt-1 text-white focus:outline-none focus:border-blue-500" placeholder="DOMINIO\\usuario">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 uppercase">Contraseña</label>
+                    <input type="password" id="input-password" class="w-full bg-gray-900 border border-gray-700 rounded-lg p-2.5 mt-1 text-white focus:outline-none focus:border-blue-500" placeholder="••••••••">
+                </div>
+                <button onclick="intentarLogin()" id="btn-login" class="w-full bg-blue-600 hover:bg-blue-500 font-semibold p-2.5 rounded-lg transition-colors cursor-pointer mt-2">Conectar al Servidor</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 📊 PANTALLA DEL DASHBOARD (Oculta al principio) -->
+    <div id="dashboard-screen" class="hidden max-w-7xl mx-auto animate-fade-in">
+        <!-- Encabezado con Botón de Salir -->
+        <header class="mb-8 border-b border-gray-800 pb-4 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-blue-400">🏪 Panel Ejecutivo de Control de Ventas</h1>
+                <p class="text-sm text-gray-400">🔒 Conexión Encriptada de Usuario • Actualización automática</p>
+            </div>
+            <button onclick="cerrarSesion()" class="bg-gray-800 hover:bg-red-900/40 border border-gray-700 text-gray-300 text-xs px-4 py-2 rounded-xl transition-all cursor-pointer">Cerrar Sesión</button>
+        </header>
+
+        <!-- KPIs -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+                <p class="text-gray-400 text-sm font-medium uppercase">💰 Facturación Total Local</p>
+                <p id="kpi-total" class="text-3xl font-bold text-green-400 mt-2">$0.00</p>
+            </div>
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+                <p class="text-gray-400 text-sm font-medium uppercase">🛒 Ticket Promedio por Documento</p>
+                <p id="kpi-promedio" class="text-3xl font-bold text-blue-400 mt-2">$0.00</p>
+            </div>
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+                <p class="text-gray-400 text-sm font-medium uppercase">📋 Total Transacciones / Documentos</p>
+                <p id="kpi-transacciones" class="text-3xl font-bold text-purple-400 mt-2">0</p>
+            </div>
+        </div>
+
+        <!-- Gráficos -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg"><h3 class="text-lg font-semibold mb-4 text-gray-300">🏢 Top 10 Clientes</h3><div class="h-64"><canvas id="chartClientes"></canvas></div></div>
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg"><h3 class="text-lg font-semibold mb-4 text-gray-300">📅 Tendencia en el Tiempo</h3><div class="h-64"><canvas id="chartTiempo"></canvas></div></div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg"><h3 class="text-lg font-semibold mb-4 text-gray-300">🧑‍💼 Ventas por Vendedor</h3><div class="h-64"><canvas id="chartVendedores"></canvas></div></div>
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg flex flex-col">
+                <h3 class="text-lg font-semibold mb-4 text-gray-300">💻 Auditoría de Facturación</h3>
+                <div class="overflow-y-auto max-h-64 flex-1"><table class="w-full text-left"><thead class="border-b border-gray-700 text-gray-400 text-sm"><tr><th class="pb-2">Máquina</th><th class="pb-2 text-right">Documentos</th></tr></thead><tbody id="tabla-maquinas" class="text-sm divide-y divide-gray-800"></tbody></table></div>
+            </div>
+        </div>
+
+        <!-- Tabla -->
+        <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg overflow-x-auto">
+            <h3 class="text-lg font-semibold mb-4 text-gray-300">🔍 Últimos 10 Documentos Registrados</h3>
+            <table class="w-full text-left min-w-[700px]"><thead class="border-b border-gray-700 text-gray-400 text-sm"><tr><th>Fecha</th><th>Razón Social</th><th>Descripción</th><th>Vendedor</th><th>Usuario</th><th class="text-right">Importe</th></tr></thead><tbody id="tabla-detalles" class="text-sm divide-y divide-gray-800"></tbody></table>
+        </div>
+    </div>
+
+    <script>
+        // ⚠️ REEMPLAZA CON TU DIRECCIÓN REAL DE RENDER
+        const API_URL = "https://mi-dashboard-0wek.onrender.com"; 
+
+        let chartClientes, chartTiempo, chartVendedores;
+        let loopActualizacion = null;
+
+        // Variables globales temporales en la sesión del navegador
+        let sessionUser = "", sessionPassword = "";
+
+        async function intentarLogin() {
+            const user = document.getElementById('input-user').value;
+            const pass = document.getElementById('input-password').value;
+            const errorBox = document.getElementById('login-error');
+            const btn = document.getElementById('btn-login');
+
+            if(!user || !pass) { errorBox.innerText = "Por favor completa ambos campos."; errorBox.classList.remove('hidden'); return; }
+
+            btn.innerText = "Conectando con SQL Server...";
+            errorBox.classList.add('hidden');
+
+            try {
+                // Hacer una petición de prueba enviando las credenciales en los Headers
+                const response = await fetch(API_URL, {
+                    method: 'GET',
+                    headers: { 'sql-user': user, 'sql-password': pass }
+                });
+
+                if (response.status === 401) {
+                    throw new Error("Usuario o contraseña incorrectos en SQL Server.");
+                }
+
+                const resultado = await response.json();
+                
+                if(resultado.status === "success") {
+                    // Guardar credenciales solo en memoria temporal de la sesión actual
+                    sessionUser = user;
+                    sessionPassword = pass;
+
+                    // Cambiar de pantalla
+                    document.getElementById('login-screen').classList.add('hidden');
+                    document.getElementById('dashboard-screen').classList.remove('hidden');
+
+                    // Pintar datos iniciales y encender bucle en vivo
+                    procesarYRenderizar(resultado.data);
+                    loopActualizacion = setInterval(refrescarDatosEnVivo, 5000);
+                }
+            } catch (err) {
+                errorBox.innerText = err.message || "Error al conectar con la API.";
+                errorBox.classList.remove('hidden');
+                btn.innerText = "Conectar al Servidor";
+            }
+        }
+
+        async function refrescarDatosEnVivo() {
+            try {
+                const response = await fetch(API_URL, {
+                    headers: { 'sql-user': sessionUser, 'sql-password': sessionPassword }
+                });
+                const resultado = await response.json();
+                if(resultado.status === "success") procesarYRenderizar(resultado.data);
+            } catch (e) { console.error("Fallo en actualización en segundo plano", e); }
+        }
+
+        function procesarYRenderizar(datos) {
+            let totalVentas = 0, totalTransacciones = datos.length;
+            let clientesMap = {}, tiempoMap = {}, vendedoresMap = {}, maquinasMap = {};
+
+            datos.forEach(row => {
+                let importe = parseFloat(row['importe total local']) || 0;
+                totalVentas += importe;
+                clientesMap[row['razon social']] = (clientesMap[row['razon social']] || 0) + importe;
+                tiempoMap[row['fecha documento']] = (tiempoMap[row['fecha documento']] || 0) + importe;
+                vendedoresMap[row['vendedor']] = (vendedoresMap[row['vendedor']] || 0) + importe;
+                maquinasMap[row['maquina']] = (maquinasMap[row['maquina']] || 0) + 1;
+            });
+
+            document.getElementById('kpi-total').innerText = `$${totalVentas.toLocaleString('es-MX', {minimumFractionDigits:2})}`;
+            document.getElementById('kpi-promedio').innerText = `$${(totalTransacciones > 0 ? totalVentas/totalTransacciones : 0).toLocaleString('es-MX', {minimumFractionDigits:2})}`;
+            document.getElementById('kpi-transacciones').innerText = totalTransacciones.toLocaleString('es-MX');
+
